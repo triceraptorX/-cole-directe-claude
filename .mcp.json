@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "ecoledirecte": {
+      "command": "uv",
+      "args": ["run", "ecoledirecte-mcp"],
+      "env": {
+        "ECOLEDIRECTE_IDENTIFIANT": "${ECOLEDIRECTE_IDENTIFIANT}",
+        "ECOLEDIRECTE_MOT_DE_PASSE": "${ECOLEDIRECTE_MOT_DE_PASSE}"
+      }
+    }
+  }
+}
