@@ -1,6 +1,9 @@
 # Chaîne d'Or : jeu de quiz Android
 
-Jeu de quiz télévisé inspiré du *Maillon faible* : vous jouez contre 5 adversaires gérés par l'ordinateur.
+Jeu de quiz télévisé inspiré du *Maillon faible*, pour une table de 6 joueurs.
+
+- **Multijoueur sur un seul téléphone** : de 1 à 6 joueurs humains. Les places libres sont prises par des IA.
+- **Vote secret** : à plusieurs, chacun vote à son tour en se passant le téléphone.
 
 - **Chaîne de gains** : 20 → 50 → 100 → 200 → 300 → 450 → 600 → 800 → 1 000 €.
 - **BANQUE** : met la chaîne à l'abri avant de répondre. Une mauvaise réponse casse la chaîne.

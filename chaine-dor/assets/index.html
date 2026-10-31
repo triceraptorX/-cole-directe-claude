@@ -35,6 +35,12 @@ input[type=text]{width:100%;padding:14px;border-radius:12px;border:1px solid var
 .seg{display:flex;gap:8px;margin:8px 0 16px}
 .seg button{flex:1;padding:12px 4px;border-radius:12px;border:1px solid var(--line);background:var(--bg2);color:var(--text);font-size:15px;font-weight:600}
 .seg button.on{background:var(--gold);color:#1a1300;border-color:var(--gold)}
+.names{display:flex;flex-direction:column;gap:8px}
+.names .nrow{display:flex;align-items:center;gap:8px}
+.names .nrow span{font-size:26px;width:34px;text-align:center}
+.overlay.pass{flex-direction:column;gap:14px;background:var(--bg);animation:none}
+.pass .btn{max-width:320px;font-size:18px}
+.pass small{font-size:16px;color:var(--muted);font-weight:500}
 .logo{width:120px;height:120px;margin:24px auto 8px;display:block}
 .rules li{margin:8px 0;line-height:1.4}
 
@@ -130,12 +136,12 @@ input[type=text]{width:100%;padding:14px;border-radius:12px;border:1px solid var
 <section id="s-rules" class="screen">
   <h2>Règles du jeu</h2>
   <ol class="rules">
-    <li>Vous affrontez <b>5 adversaires</b>. À tour de rôle, chacun répond à une question.</li>
+    <li>Jouez seul ou <b>jusqu'à 6 sur le même téléphone</b> : les places libres sont prises par des IA. À tour de rôle, chacun répond à une question.</li>
     <li>Chaque bonne réponse fait monter la <b>chaîne</b> : 20 → 50 → 100 → … → 1 000 €.</li>
     <li>Une mauvaise réponse <b>casse la chaîne</b> : tout ce qui n'a pas été mis à l'abri est perdu.</li>
     <li>Avant de répondre, appuyez sur <b>BANQUE</b> pour mettre la chaîne à l'abri dans la cagnotte. Elle repart alors de zéro.</li>
     <li>Chaque manche est chronométrée et un peu plus courte que la précédente.</li>
-    <li>À la fin de la manche, tout le monde <b>vote</b> pour éliminer un joueur. En cas d'égalité, le meilleur joueur de la manche tranche.</li>
+    <li>À la fin de la manche, tout le monde <b>vote</b> pour éliminer un joueur. À plusieurs, le vote est secret : on se passe le téléphone. En cas d'égalité, le meilleur joueur de la manche tranche.</li>
     <li>À deux, la dernière manche vaut <b>double</b>, puis un <b>duel</b> de 5 questions chacun désigne le gagnant de la cagnotte.</li>
   </ol>
   <div class="grow"></div>
@@ -145,9 +151,14 @@ input[type=text]{width:100%;padding:14px;border-radius:12px;border:1px solid var
 <!-- Configuration -->
 <section id="s-setup" class="screen">
   <h2>Nouvelle partie</h2>
-  <label class="muted">Votre prénom</label>
-  <input type="text" id="pname" maxlength="12" placeholder="Votre prénom">
-  <p class="muted" style="margin-bottom:0">Niveau des adversaires</p>
+  <p class="muted" style="margin:0">Nombre de joueurs humains (sur ce téléphone)</p>
+  <div class="seg" id="nhum">
+    <button data-v="1" class="on">1</button><button data-v="2">2</button><button data-v="3">3</button>
+    <button data-v="4">4</button><button data-v="5">5</button><button data-v="6">6</button>
+  </div>
+  <div id="names" class="names"></div>
+  <p class="muted center" id="fillnote" style="margin:4px 0"></p>
+  <p class="muted" style="margin-bottom:0">Niveau des IA</p>
   <div class="seg" id="diff">
     <button data-v="0">Facile</button><button data-v="1" class="on">Normal</button><button data-v="2">Difficile</button>
   </div>
@@ -291,28 +302,48 @@ let G=null, roundTimer=null, ended=false;
 function go(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   $(id).classList.add('active');
-  if(id==='s-setup'){try{$('pname').value=localStorage.getItem('name')||''}catch(e){}}
+  if(id==='s-setup')renderNames();
 }
 function showBest(){
   let b=0;try{b=+localStorage.getItem('best')||0}catch(e){}
   $('best').innerHTML=b?`Meilleur gain : <b style="color:var(--gold)">${euro(b)}</b>`:'';
 }
-document.querySelectorAll('#diff button').forEach(b=>b.onclick=()=>{
-  document.querySelectorAll('#diff button').forEach(x=>x.classList.remove('on'));b.classList.add('on')});
+function segInit(id,cb){document.querySelectorAll('#'+id+' button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#'+id+' button').forEach(x=>x.classList.remove('on'));b.classList.add('on');cb&&cb()})}
+segInit('diff');
+const HUMAN_AV=['⭐','🎩','🚀','🍀','🎸','👑'];
+function savedNames(){try{return JSON.parse(localStorage.getItem('names')||'[]')}catch(e){return[]}}
+function currentNames(){return [...document.querySelectorAll('#names input')].map(i=>i.value)}
+function renderNames(){
+  const n=+document.querySelector('#nhum .on').dataset.v;
+  const keep=currentNames(),saved=savedNames();
+  $('names').innerHTML=Array.from({length:n},(_,i)=>`<div class="nrow"><span>${HUMAN_AV[i]}</span>
+    <input type="text" maxlength="12" placeholder="Joueur ${i+1}" value="${esc(keep[i]??saved[i]??'')}"></div>`).join('');
+  const b=6-n;
+  $('fillnote').textContent=b?`+ ${b} IA pour compléter la table de 6`:'Table complète : aucune IA';
+}
+segInit('nhum',renderNames);
 
 function startGame(){
-  const name=($('pname').value.trim()||'Vous').slice(0,12);
-  try{localStorage.setItem('name',name)}catch(e){}
+  const raw=currentNames();
+  const used=new Set();
+  const humans=raw.map((v,i)=>{
+    let name=(v.trim()||'Joueur '+(i+1)).slice(0,12);
+    while(used.has(name.toLowerCase()))name=name.slice(0,10)+' '+(i+1);
+    used.add(name.toLowerCase());
+    return {name,av:HUMAN_AV[i],human:true,alive:true};
+  });
+  try{localStorage.setItem('names',JSON.stringify(raw))}catch(e){}
   const d=+document.querySelector('#diff .on').dataset.v;
   const [lo,hi]=DIFF[d];
-  const bots=shuffle(BOTS).slice(0,5).map(([n,a])=>({name:n,av:a,human:false,skill:rnd(lo,hi),
-    bankAt:1+Math.floor(Math.random()*4),alive:true}));
-  const me={name,av:'⭐',human:true,alive:true};
-  G={players:shuffle([me,...bots]),round:0,total:0,starter:0};
+  const bots=shuffle(BOTS.filter(([n])=>!used.has(n.toLowerCase()))).slice(0,6-humans.length)
+    .map(([n,a])=>({name:n,av:a,human:false,skill:rnd(lo,hi),bankAt:1+Math.floor(Math.random()*4),alive:true}));
+  G={players:shuffle([...humans,...bots]),round:0,total:0,starter:0,multi:humans.length>1};
   qPool=shuffle(window.QUESTIONS);
   startRound();
 }
 const alive=()=>G.players.filter(p=>p.alive);
+const aliveHumans=()=>alive().filter(p=>p.human);
 
 // ---------- Manche ----------
 function startRound(){
@@ -366,7 +397,7 @@ async function nextTurn(first){
   const p=G.players[G.turn];
   renderPlayers();
   const Q=nextQuestion();G.cur=Q;
-  $('r-who').textContent=(p.human?'À vous, ':'Question pour ')+p.name;
+  $('r-who').textContent=(p.human?'À toi, ':'Question pour ')+p.name+(p.human?' !':'');
   $('r-q').textContent=Q.q;
   $('r-status').textContent='';$('r-status').className='status';
   const box=$('r-ans');
@@ -458,27 +489,57 @@ function ranks(){
   const a=alive().slice().sort((x,y)=>strength(y)-strength(x));
   return {strong:a[0],weak:a[a.length-1]};
 }
-let myVote=null;
-function showVote(){
+function rows(){return [...$('v-list').children]}
+function rowOf(p){return rows().find(r=>G.players[+r.dataset.n]===p)}
+// Écran « passe le téléphone » : attend que le joueur le prenne
+function passPhone(p,why){
+  return new Promise(res=>{
+    const o=document.createElement('div');o.className='overlay pass';
+    o.innerHTML=`<div style="font-size:54px">${p.av}</div><div>Passe le téléphone à<br><span>${esc(p.name)}</span></div>
+      <small>${why}</small><button class="btn">Je suis ${esc(p.name)}</button>`;
+    o.querySelector('button').onclick=()=>{o.remove();res()};
+    document.body.appendChild(o);
+  });
+}
+// Fait choisir une ligne parmi les joueurs autorisés
+function chooseRow(allowed,hint,label){
+  return new Promise(res=>{
+    let choice=null;
+    $('v-hint').innerHTML=hint;
+    rows().forEach(r=>{
+      const p=G.players[+r.dataset.n];r.classList.remove('sel');
+      const ok=allowed.includes(p);r.style.opacity=ok?1:.35;
+      r.onclick=ok?()=>{rows().forEach(x=>x.classList.remove('sel'));r.classList.add('sel');choice=p;$('v-btn').disabled=false}:null;
+    });
+    const btn=$('v-btn');btn.textContent=label;btn.disabled=true;
+    btn.onclick=()=>{if(!choice)return;btn.disabled=true;btn.onclick=null;
+      rows().forEach(r=>{r.onclick=null;r.classList.remove('sel');r.style.opacity=1});res(choice)};
+  });
+}
+async function showVote(){
   const {strong,weak}=ranks();G.strong=strong;G.weak=weak;
   G.starter=G.players.indexOf(strong);
   $('v-title').textContent=`Fin de la manche ${G.round}`;
   $('v-sub').innerHTML=`Cagnotte totale : <b style="color:var(--gold)">${euro(G.total)}</b>`;
-  myVote=null;
-  const me=G.players.find(p=>p.human);
   $('v-list').innerHTML=alive().map(p=>`<div class="row ${p===strong?'strong':''} ${p===weak?'weak':''}" data-n="${G.players.indexOf(p)}">
     <div class="av">${p.av}</div>
     <div class="info"><div class="nm">${esc(p.name)} ${p===strong?'<span class="tag s">LE PLUS SOLIDE</span>':''}${p===weak?'<span class="tag w">LE PLUS FRAGILE</span>':''}</div>
     <div class="st">✔ ${p.st.good} &nbsp; ✘ ${p.st.bad} &nbsp; banqué ${euro(p.st.banked)}</div></div>
     <div class="votes"></div></div>`).join('');
-  $('v-hint').textContent='Touchez le joueur que vous voulez éliminer.';
-  $('v-btn').disabled=true;$('v-btn').textContent='Voter';$('v-btn').onclick=confirmVote;
-  [...$('v-list').children].forEach(r=>{
-    const p=G.players[+r.dataset.n];
-    if(p===me){r.style.opacity=.6;return}
-    r.onclick=()=>{[...$('v-list').children].forEach(x=>x.classList.remove('sel'));r.classList.add('sel');myVote=p;$('v-btn').disabled=false};
-  });
+  $('v-btn').disabled=true;$('v-btn').textContent='Voter';
   go('s-vote');
+  // Votes des humains, un par un (secrets s'ils sont plusieurs)
+  const ballots=[];
+  const hs=aliveHumans();
+  for(const h of hs){
+    if(hs.length>1){$('v-hint').textContent='';await passPhone(h,'Vote secret : les autres ne regardent pas !')}
+    const t=await chooseRow(alive().filter(p=>p!==h),
+      `<b>${esc(h.name)}</b>, touche le joueur à éliminer.`,hs.length>1?'Valider mon vote':'Voter');
+    ballots.push([h,t]);
+  }
+  alive().filter(p=>!p.human).forEach(b=>ballots.push([b,botVote(b)]));
+  if(hs.length>1)await overlay('Tous les votes sont faits.<br><span>Posez le téléphone au centre !</span>',1800);
+  revealVotes(ballots);
 }
 function botVote(b){
   const others=alive().filter(p=>p!==b);
@@ -489,37 +550,29 @@ function botVote(b){
   if(r<0.88)return sorted[sorted.length-1];        // stratégie : écarter le plus fort
   return pick(others);
 }
-async function confirmVote(){
-  if(!myVote)return;
-  $('v-btn').disabled=true;
-  [...$('v-list').children].forEach(r=>r.onclick=null);
+async function revealVotes(ballots){
+  $('v-btn').disabled=true;$('v-btn').textContent='Dépouillement…';
   $('v-hint').textContent='Dépouillement des votes…';
   const votes=new Map();alive().forEach(p=>votes.set(p,0));
-  const ballots=alive().map(v=>[v,v.human?myVote:botVote(v)]);
   for(const [voter,target] of shuffle(ballots)){
     await sleep(700);
     votes.set(target,votes.get(target)+1);
-    const row=[...$('v-list').children].find(r=>G.players[+r.dataset.n]===target);
+    const row=rowOf(target);
     row.querySelector('.votes').textContent=votes.get(target);
     row.querySelector('.nm').insertAdjacentHTML('beforeend',`<span class="ballot">${esc(voter.name)}</span>`);
     tone(500,.08,'square',.06);
   }
   await sleep(800);
   const max=Math.max(...votes.values());
-  let tied=[...votes].filter(([,v])=>v===max).map(([p])=>p);
+  const tied=[...votes].filter(([,v])=>v===max).map(([p])=>p);
   if(tied.length===1)return eliminate(tied[0],null);
   // Égalité : le plus solide tranche
   const s=G.strong;
   if(s.human){
-    $('v-hint').innerHTML=`Égalité ! Vous êtes le joueur le plus solide : <b>à vous de trancher</b>.`;
-    [...$('v-list').children].forEach(r=>{
-      const p=G.players[+r.dataset.n];
-      if(!tied.includes(p)||p.human){r.style.opacity=.35;r.onclick=null;return}
-      r.classList.remove('sel');
-      r.onclick=()=>{[...$('v-list').children].forEach(x=>x.classList.remove('sel'));r.classList.add('sel');myVote=p;$('v-btn').disabled=false};
-    });
-    $('v-btn').textContent='Trancher';$('v-btn').disabled=true;
-    $('v-btn').onclick=()=>{if(myVote&&tied.includes(myVote))eliminate(myVote,s)};
+    const cands=tied.filter(p=>p!==s);
+    if(aliveHumans().length>1)await passPhone(s,'Égalité ! Tu es le joueur le plus solide : à toi de trancher.');
+    const t=await chooseRow(cands,`Égalité ! <b>${esc(s.name)}</b>, le plus solide, doit trancher.`,'Trancher');
+    eliminate(t,s);
   }else{
     $('v-hint').innerHTML=`Égalité ! ${esc(s.name)}, le plus solide, tranche…`;
     await sleep(1500);
@@ -531,11 +584,13 @@ function eliminate(p,decider){
   p.alive=false;
   const lines=['vous êtes le chaînon qui lâche. Au revoir !','la chaîne se passera de vous. Au revoir !','votre maillon cède. Au revoir !'];
   $('e-text').innerHTML=`${p.av}<br>${esc(p.name)},<br>${pick(lines)}`;
-  $('e-sub').textContent=decider?`Décision de ${decider.human?'vous-même':decider.name} après égalité.`:'';
+  $('e-sub').textContent=decider?`Décision de ${decider.name} après égalité.`:'';
   sfx.end();vibrate(200);
-  if(p.human){
+  if(!aliveHumans().length){
     $('e-btn').textContent='Voir le bilan';
-    $('e-btn').onclick=()=>finish(false,`Éliminé·e à la manche ${G.round}. La cagnotte s'élevait à ${euro(G.total)}.`);
+    $('e-btn').onclick=()=>finish(false,G.multi
+      ?`Plus aucun joueur humain en lice après la manche ${G.round}. La cagnotte s'élevait à ${euro(G.total)}.`
+      :`Éliminé·e à la manche ${G.round}. La cagnotte s'élevait à ${euro(G.total)}.`);
   }else{
     $('e-btn').textContent=alive().length===2?'Manche finale':'Manche suivante';
     $('e-btn').onclick=()=>{if(!G.players[G.starter].alive)G.starter=G.players.findIndex(x=>x.alive);startRound()};
@@ -583,7 +638,7 @@ async function duelTurn(){
   }
   renderDuel();
   const p=G.duo[G.dturn];const Q=nextQuestion();
-  $('d-who').textContent=(p.human?'À vous, ':'Question pour ')+p.name;
+  $('d-who').textContent=(p.human?'À toi, ':'Question pour ')+p.name+(p.human?' !':'');
   $('d-q').textContent=Q.q;$('d-status').textContent='';$('d-status').className='status';
   const box=$('d-ans');
   box.innerHTML=Q.opts.map(o=>`<button class="ans">${esc(o)}</button>`).join('');
@@ -619,11 +674,12 @@ async function duelTurn(){
 }
 function duelEnd(w){
   const win=G.duo[w];renderDuel();
-  if(win.human){sfx.win();finish(true,`Vous battez ${G.duo[1-w].name} en duel et remportez toute la cagnotte !`)}
-  else finish(false,`${win.name} remporte le duel et repart avec la cagnotte de ${euro(G.total)}. Si près du but !`);
+  const lose=G.duo[1-w];
+  if(win.human){sfx.win();finish(true,`${win.av} ${win.name} bat ${lose.name} en duel et remporte toute la cagnotte !`,win)}
+  else finish(false,`${win.name} (IA) remporte le duel et repart avec la cagnotte de ${euro(G.total)}.${lose.human?' Si près du but, '+lose.name+' !':''}`);
 }
-function finish(won,text){
-  $('f-title').textContent=won?'Victoire !':'Perdu !';
+function finish(won,text,winner){
+  $('f-title').textContent=won?(G.multi?winner.name+' gagne !':'Victoire !'):(G.multi?'Les IA gagnent !':'Perdu !');
   $('f-amount').textContent=won?euro(G.total):'0 €';
   $('f-text').textContent=text;
   if(won){try{const b=+localStorage.getItem('best')||0;if(G.total>b)localStorage.setItem('best',G.total)}catch(e){}}
@@ -635,7 +691,7 @@ window.handleBack=function(){
   const a=document.querySelector('.screen.active').id;
   if(a==='s-rules'||a==='s-setup'){go('s-home');return true}
   if(a==='s-home')return false;
-  if(confirm('Quitter la partie en cours ?')){if(G)G.quit=true;ended=true;turnToken++;clearInterval(roundTimer);clearInterval(dTimer);go('s-home');showBest()}
+  if(confirm('Quitter la partie en cours ?')){document.querySelectorAll('.overlay').forEach(o=>o.remove());if(G)G.quit=true;ended=true;turnToken++;clearInterval(roundTimer);clearInterval(dTimer);go('s-home');showBest()}
   return true;
 };
 showBest();
