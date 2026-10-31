@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Chaîne d'Or</title>
+<style>
+:root{
+  --bg:#0b0f1e; --bg2:#141a33; --card:#1b2345; --line:#2b3666;
+  --text:#eef1ff; --muted:#9aa3c7; --gold:#f5c542; --gold2:#ffdf7e;
+  --red:#ff4d5e; --green:#35d07f; --blue:#4aa3ff;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden}
+body{background:radial-gradient(ellipse at top,#1d2552 0%,var(--bg) 65%)}
+.screen{position:absolute;inset:0;display:none;flex-direction:column;padding:16px;
+  padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));overflow-y:auto}
+.screen.active{display:flex}
+h1{font-size:40px;margin:0;letter-spacing:1px;text-align:center;
+  background:linear-gradient(180deg,var(--gold2),var(--gold) 60%,#c48a12);-webkit-background-clip:text;color:transparent}
+h2{margin:6px 0 12px;font-size:22px;text-align:center}
+p{line-height:1.45}
+.muted{color:var(--muted)}
+.center{text-align:center}
+.grow{flex:1}
+.btn{display:block;width:100%;border:0;border-radius:14px;padding:16px;font-size:18px;font-weight:700;
+  color:#1a1300;background:linear-gradient(180deg,var(--gold2),var(--gold));margin:8px 0;
+  box-shadow:0 4px 0 #a5760e;transition:transform .08s}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #a5760e}
+.btn.sec{background:var(--card);color:var(--text);box-shadow:0 4px 0 #0c1130;border:1px solid var(--line)}
+.btn:disabled{opacity:.4}
+input[type=text]{width:100%;padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--bg2);
+  color:var(--text);font-size:18px;user-select:text}
+.seg{display:flex;gap:8px;margin:8px 0 16px}
+.seg button{flex:1;padding:12px 4px;border-radius:12px;border:1px solid var(--line);background:var(--bg2);color:var(--text);font-size:15px;font-weight:600}
+.seg button.on{background:var(--gold);color:#1a1300;border-color:var(--gold)}
+.logo{width:120px;height:120px;margin:24px auto 8px;display:block}
+.rules li{margin:8px 0;line-height:1.4}
+
+/* Jeu */
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.pill{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-weight:700;font-size:15px;white-space:nowrap}
+.timer{font-variant-numeric:tabular-nums;font-size:20px}
+.timer.low{color:var(--red);border-color:var(--red)}
+.bankpill{color:var(--gold)}
+.board{display:flex;gap:10px;margin-top:12px;min-height:0}
+.chain{display:flex;flex-direction:column-reverse;gap:4px;width:74px;flex-shrink:0}
+.link{border-radius:10px;padding:6px 0;text-align:center;font-weight:800;font-size:14px;background:var(--bg2);
+  border:2px solid var(--line);color:var(--muted);transition:all .2s}
+.link.done{background:linear-gradient(180deg,var(--gold2),var(--gold));color:#1a1300;border-color:var(--gold)}
+.link.next{border-color:var(--gold);color:var(--gold)}
+.link.flash{animation:flash .5s}
+@keyframes flash{0%{transform:scale(1.15)}100%{transform:scale(1)}}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.players{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.pl{flex:1 1 30%;min-width:0;background:var(--bg2);border:2px solid var(--line);border-radius:12px;padding:6px 4px;text-align:center;font-size:13px}
+.pl .av{font-size:22px}
+.pl .nm{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl.turn{border-color:var(--gold);box-shadow:0 0 12px rgba(245,197,66,.45)}
+.pl.out{opacity:.25}
+.pl.me .nm{color:var(--gold2)}
+.qbox{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;min-height:96px;display:flex;flex-direction:column;justify-content:center}
+.who{font-size:13px;color:var(--muted);margin-bottom:6px}
+.q{font-size:18px;font-weight:700;line-height:1.35}
+.answers{display:grid;grid-template-columns:1fr;gap:8px;margin-top:10px}
+.ans{border:2px solid var(--line);background:var(--bg2);color:var(--text);border-radius:12px;padding:12px;font-size:16px;font-weight:600;text-align:left;min-height:48px}
+.ans:active{background:#232c58}
+.ans.good{background:var(--green);border-color:var(--green);color:#03210f}
+.ans.bad{background:var(--red);border-color:var(--red);color:#2a0006}
+.ans.pick{border-color:var(--blue)}
+.ans:disabled{opacity:1}
+.bankbtn{margin-top:auto;padding:18px;font-size:22px;letter-spacing:2px}
+.status{text-align:center;min-height:26px;font-weight:700;margin-top:8px}
+.status.good{color:var(--green)} .status.bad{color:var(--red)} .status.gold{color:var(--gold)}
+
+/* Stats / votes */
+.list{display:flex;flex-direction:column;gap:8px}
+.row{display:flex;align-items:center;gap:10px;background:var(--card);border:2px solid var(--line);border-radius:14px;padding:10px 12px}
+.row .av{font-size:26px}
+.row .info{flex:1;min-width:0}
+.row .nm{font-weight:700}
+.row .st{font-size:13px;color:var(--muted)}
+.row.sel{border-color:var(--red);background:#3a1630}
+.row.strong{border-color:var(--green)}
+.row.weak{border-color:var(--red)}
+.tag{font-size:11px;font-weight:800;padding:3px 7px;border-radius:999px}
+.tag.s{background:var(--green);color:#03210f}
+.tag.w{background:var(--red);color:#2a0006}
+.votes{font-size:22px;font-weight:800;min-width:30px;text-align:right;color:var(--red)}
+.ballot{display:inline-block;background:#fff;color:#111;border-radius:6px;padding:2px 8px;font-weight:800;font-size:14px;margin-left:6px;animation:pop .3s}
+@keyframes pop{0%{transform:scale(0)}80%{transform:scale(1.2)}100%{transform:scale(1)}}
+.big{font-size:44px;font-weight:900;text-align:center;color:var(--gold);margin:8px 0}
+.verdict{font-size:24px;font-weight:800;text-align:center;margin:16px 0;line-height:1.3}
+
+/* Duel */
+.duelrow{display:flex;align-items:center;gap:10px;background:var(--card);border-radius:14px;padding:12px;margin:6px 0;border:2px solid var(--line)}
+.duelrow.turn{border-color:var(--gold)}
+.dots{display:flex;gap:6px;flex-wrap:wrap}
+.dot{width:22px;height:22px;border-radius:50%;background:var(--bg2);border:2px solid var(--line)}
+.dot.g{background:var(--green);border-color:var(--green)}
+.dot.b{background:var(--red);border-color:var(--red)}
+.qtimer{height:6px;border-radius:3px;background:var(--line);margin-top:10px;overflow:hidden}
+.qtimer>div{height:100%;background:var(--gold);width:100%}
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(5,8,20,.85);
+  font-size:30px;font-weight:900;text-align:center;padding:24px;z-index:10;animation:fade .3s}
+.overlay span{color:var(--gold)}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+</style>
+</head>
+<body>
+
+<!-- Accueil -->
+<section id="s-home" class="screen active">
+  <div class="grow"></div>
+  <svg class="logo" viewBox="0 0 120 120" aria-hidden="true">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffdf7e"/><stop offset="1" stop-color="#d99a14"/></linearGradient></defs>
+    <rect x="14" y="38" width="52" height="44" rx="22" fill="none" stroke="url(#g)" stroke-width="12"/>
+    <rect x="54" y="38" width="52" height="44" rx="22" fill="none" stroke="url(#g)" stroke-width="12"/>
+  </svg>
+  <h1>CHAÎNE D'OR</h1>
+  <p class="center muted">Répondez vite, bancassez au bon moment<br>et éliminez les maillons qui lâchent.</p>
+  <p class="center" id="best"></p>
+  <div class="grow"></div>
+  <button class="btn" onclick="go('s-setup')">Jouer</button>
+  <button class="btn sec" onclick="go('s-rules')">Règles du jeu</button>
+</section>
+
+<!-- Règles -->
+<section id="s-rules" class="screen">
+  <h2>Règles du jeu</h2>
+  <ol class="rules">
+    <li>Vous affrontez <b>5 adversaires</b>. À tour de rôle, chacun répond à une question.</li>
+    <li>Chaque bonne réponse fait monter la <b>chaîne</b> : 20 → 50 → 100 → … → 1 000 €.</li>
+    <li>Une mauvaise réponse <b>casse la chaîne</b> : tout ce qui n'a pas été mis à l'abri est perdu.</li>
+    <li>Avant de répondre, appuyez sur <b>BANQUE</b> pour mettre la chaîne à l'abri dans la cagnotte. Elle repart alors de zéro.</li>
+    <li>Chaque manche est chronométrée et un peu plus courte que la précédente.</li>
+    <li>À la fin de la manche, tout le monde <b>vote</b> pour éliminer un joueur. En cas d'égalité, le meilleur joueur de la manche tranche.</li>
+    <li>À deux, la dernière manche vaut <b>double</b>, puis un <b>duel</b> de 5 questions chacun désigne le gagnant de la cagnotte.</li>
+  </ol>
+  <div class="grow"></div>
+  <button class="btn" onclick="go('s-home')">Compris !</button>
+</section>
+
+<!-- Configuration -->
+<section id="s-setup" class="screen">
+  <h2>Nouvelle partie</h2>
+  <label class="muted">Votre prénom</label>
+  <input type="text" id="pname" maxlength="12" placeholder="Votre prénom">
+  <p class="muted" style="margin-bottom:0">Niveau des adversaires</p>
+  <div class="seg" id="diff">
+    <button data-v="0">Facile</button><button data-v="1" class="on">Normal</button><button data-v="2">Difficile</button>
+  </div>
+  <div class="grow"></div>
+  <button class="btn" onclick="startGame()">Lancer la partie</button>
+  <button class="btn sec" onclick="go('s-home')">Retour</button>
+</section>
+
+<!-- Manche -->
+<section id="s-round" class="screen">
+  <div class="top">
+    <span class="pill" id="r-title">Manche 1</span>
+    <span class="pill timer" id="r-timer">1:30</span>
+    <span class="pill bankpill" id="r-bank">0 €</span>
+  </div>
+  <div class="board grow">
+    <div class="chain" id="chain"></div>
+    <div class="main">
+      <div class="players" id="r-players"></div>
+      <div class="qbox">
+        <div class="who" id="r-who"></div>
+        <div class="q" id="r-q"></div>
+      </div>
+      <div class="answers" id="r-ans"></div>
+      <div class="status" id="r-status"></div>
+      <button class="btn bankbtn" id="r-bankbtn" onclick="humanBank()">BANQUE</button>
+    </div>
+  </div>
+</section>
+
+<!-- Fin de manche / vote -->
+<section id="s-vote" class="screen">
+  <h2 id="v-title">Fin de la manche</h2>
+  <p class="center muted" id="v-sub"></p>
+  <div class="list" id="v-list"></div>
+  <p class="center" id="v-hint"></p>
+  <div class="grow"></div>
+  <button class="btn" id="v-btn" disabled onclick="confirmVote()">Voter</button>
+</section>
+
+<!-- Résultat du vote -->
+<section id="s-elim" class="screen">
+  <h2>Le verdict</h2>
+  <div class="grow"></div>
+  <div class="verdict" id="e-text"></div>
+  <p class="center muted" id="e-sub"></p>
+  <div class="grow"></div>
+  <button class="btn" id="e-btn">Continuer</button>
+</section>
+
+<!-- Duel -->
+<section id="s-duel" class="screen">
+  <div class="top">
+    <span class="pill">Duel final</span>
+    <span class="pill bankpill" id="d-bank">0 €</span>
+  </div>
+  <div id="d-rows" style="margin-top:12px"></div>
+  <div class="qbox" style="margin-top:8px">
+    <div class="who" id="d-who"></div>
+    <div class="q" id="d-q"></div>
+  </div>
+  <div class="answers" id="d-ans"></div>
+  <div class="qtimer" id="d-qt"><div></div></div>
+  <div class="status" id="d-status"></div>
+</section>
+
+<!-- Fin -->
+<section id="s-end" class="screen">
+  <div class="grow"></div>
+  <h1 id="f-title">Victoire !</h1>
+  <div class="big" id="f-amount"></div>
+  <p class="center" id="f-text"></p>
+  <div class="grow"></div>
+  <button class="btn" onclick="go('s-setup')">Rejouer</button>
+  <button class="btn sec" onclick="go('s-home');showBest()">Accueil</button>
+</section>
+
+<script src="questions.js"></script>
+<script>
+"use strict";
+const CHAIN=[20,50,100,200,300,450,600,800,1000];
+const ROUND_TIME=[90,80,70,60,55]; // secondes, selon le nombre de joueurs restants
+const FINAL_TIME=60;
+const BOTS=[
+  ["Léa","🦊"],["Karim","🐻"],["Sophie","🦉"],["Hugo","🐺"],["Inès","🐱"],["Marc","🐗"],
+  ["Chloé","🦄"],["Yanis","🐯"],["Camille","🐼"],["Théo","🐸"],["Nadia","🦁"],["Paul","🐧"]
+];
+const DIFF=[[0.50,0.66],[0.62,0.80],[0.74,0.90]];
+
+const $=id=>document.getElementById(id);
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const euro=n=>n.toLocaleString('fr-FR')+' €';
+const fmt=s=>{s=Math.max(0,Math.ceil(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+// ---------- Sons ----------
+let actx=null;
+function tone(freq,dur,type='sine',vol=.15,delay=0){
+  try{
+    actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    const t=actx.currentTime+delay,o=actx.createOscillator(),g=actx.createGain();
+    o.type=type;o.frequency.setValueAtTime(freq,t);
+    g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);
+    o.connect(g).connect(actx.destination);o.start(t);o.stop(t+dur);
+  }catch(e){}
+}
+const sfx={
+  good:()=>{tone(660,.12,'triangle');tone(990,.18,'triangle',.15,.1)},
+  bad:()=>{tone(200,.35,'sawtooth',.12)},
+  bank:()=>{[523,659,784,1046].forEach((f,i)=>tone(f,.15,'square',.07,i*.07))},
+  tick:()=>tone(1200,.04,'square',.05),
+  end:()=>{tone(400,.3,'sawtooth',.1);tone(300,.5,'sawtooth',.1,.3)},
+  win:()=>{[523,659,784,1046,1318].forEach((f,i)=>tone(f,.25,'triangle',.12,i*.12))}
+};
+function vibrate(ms){try{navigator.vibrate&&navigator.vibrate(ms)}catch(e){}}
+
+// ---------- Questions ----------
+let qPool=[];
+function mathQuestion(){
+  const k=Math.floor(Math.random()*4);let q,a;
+  if(k===0){const x=2+Math.floor(Math.random()*8),y=3+Math.floor(Math.random()*8);q=`Combien font ${x} × ${y} ?`;a=x*y}
+  else if(k===1){const x=15+Math.floor(Math.random()*70),y=12+Math.floor(Math.random()*60);q=`Combien font ${x} + ${y} ?`;a=x+y}
+  else if(k===2){const y=11+Math.floor(Math.random()*40),x=y+10+Math.floor(Math.random()*60);q=`Combien font ${x} − ${y} ?`;a=x-y}
+  else{const p=pick([10,20,25,50]),b=pick([40,60,80,120,200,300]);q=`Combien font ${p} % de ${b} ?`;a=p*b/100}
+  const w=new Set();
+  while(w.size<3){const d=pick([-10,-2,-1,1,2,10,-5,5]);const v=a+d;if(v!==a&&v>=0)w.add(v)}
+  return {q,good:String(a),opts:shuffle([String(a),...[...w].map(String)])};
+}
+function nextQuestion(){
+  if(Math.random()<0.12)return mathQuestion();
+  if(!qPool.length)qPool=shuffle(window.QUESTIONS);
+  const [q,good,...bad]=qPool.pop();
+  return {q,good,opts:shuffle([good,...bad])};
+}
+
+// ---------- État ----------
+let G=null, roundTimer=null, ended=false;
+
+function go(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  $(id).classList.add('active');
+  if(id==='s-setup'){try{$('pname').value=localStorage.getItem('name')||''}catch(e){}}
+}
+function showBest(){
+  let b=0;try{b=+localStorage.getItem('best')||0}catch(e){}
+  $('best').innerHTML=b?`Meilleur gain : <b style="color:var(--gold)">${euro(b)}</b>`:'';
+}
+document.querySelectorAll('#diff button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#diff button').forEach(x=>x.classList.remove('on'));b.classList.add('on')});
+
+function startGame(){
+  const name=($('pname').value.trim()||'Vous').slice(0,12);
+  try{localStorage.setItem('name',name)}catch(e){}
+  const d=+document.querySelector('#diff .on').dataset.v;
+  const [lo,hi]=DIFF[d];
+  const bots=shuffle(BOTS).slice(0,5).map(([n,a])=>({name:n,av:a,human:false,skill:rnd(lo,hi),
+    bankAt:1+Math.floor(Math.random()*4),alive:true}));
+  const me={name,av:'⭐',human:true,alive:true};
+  G={players:shuffle([me,...bots]),round:0,total:0,starter:0};
+  qPool=shuffle(window.QUESTIONS);
+  startRound();
+}
+const alive=()=>G.players.filter(p=>p.alive);
+
+// ---------- Manche ----------
+function startRound(){
+  G.round++;
+  const n=alive().length;
+  G.final=(n===2);
+  G.time=G.final?FINAL_TIME:ROUND_TIME[Math.max(0,6-n)];
+  G.level=0;G.roundBank=0;
+  G.players.forEach(p=>p.st={good:0,bad:0,banked:0});
+  ended=false;
+  $('r-title').textContent=G.final?'Manche finale ×2':'Manche '+G.round;
+  go('s-round');
+  renderPlayers();renderChain();updateTop();
+  $('r-q').textContent='';$('r-who').textContent='';$('r-ans').innerHTML='';$('r-status').textContent='';
+  overlay(G.final?`Manche finale<br><span>Gains doublés !</span>`:`Manche ${G.round}<br><span>${fmt(G.time)}</span>`,1600).then(()=>{
+    let last=Date.now(),lastSec=Math.ceil(G.time);
+    roundTimer=setInterval(()=>{
+      const now=Date.now();G.time-=(now-last)/1000;last=now;
+      const s=Math.ceil(G.time);
+      if(s!==lastSec){lastSec=s;if(s<=10&&s>0)sfx.tick()}
+      updateTop();
+      if(G.time<=0)endRound('time');
+    },100);
+    G.turn=G.starter%G.players.length;
+    while(!G.players[G.turn].alive)G.turn=(G.turn+1)%G.players.length;
+    nextTurn(true);
+  });
+}
+function overlay(html,ms){
+  const o=document.createElement('div');o.className='overlay';o.innerHTML=html;document.body.appendChild(o);
+  return sleep(ms).then(()=>o.remove());
+}
+function renderPlayers(){
+  $('r-players').innerHTML=G.players.map((p,i)=>`<div class="pl ${p.alive?'':'out'} ${p.human?'me':''} ${i===G.turn&&!ended?'turn':''}">
+    <div class="av">${p.av}</div><div class="nm">${esc(p.name)}</div></div>`).join('');
+}
+function renderChain(flash){
+  $('chain').innerHTML=CHAIN.map((v,i)=>`<div class="link ${i<G.level?'done':''} ${i===G.level?'next':''} ${flash&&i===G.level-1?'flash':''}">${v>=1000?'1 000':v}</div>`).join('');
+}
+function updateTop(){
+  const t=$('r-timer');t.textContent=fmt(G.time);t.classList.toggle('low',G.time<=10);
+  $('r-bank').textContent=euro(G.roundBank);
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+let turnToken=0, awaiting=null;
+async function nextTurn(first){
+  if(ended)return;
+  if(!first){do{G.turn=(G.turn+1)%G.players.length}while(!G.players[G.turn].alive)}
+  const tok=++turnToken;
+  const p=G.players[G.turn];
+  renderPlayers();
+  const Q=nextQuestion();G.cur=Q;
+  $('r-who').textContent=(p.human?'À vous, ':'Question pour ')+p.name;
+  $('r-q').textContent=Q.q;
+  $('r-status').textContent='';$('r-status').className='status';
+  const box=$('r-ans');
+  box.innerHTML=Q.opts.map((o,i)=>`<button class="ans" data-i="${i}">${esc(o)}</button>`).join('');
+  const btns=[...box.children];
+  const bb=$('r-bankbtn');
+  if(p.human){
+    bb.disabled=G.level===0;
+    awaiting=new Promise(res=>{btns.forEach(b=>b.onclick=()=>res(b.textContent))});
+    const ans=await awaiting;
+    if(tok!==turnToken||ended)return;
+    resolve(p,ans,btns);
+  }else{
+    bb.disabled=true;
+    btns.forEach(b=>b.disabled=true);
+    await sleep(rnd(450,800));
+    if(tok!==turnToken||ended)return;
+    // Le bot décide de banquer
+    const want=G.level>=p.bankAt||(G.level>0&&G.time<6)||(G.level>=2&&Math.random()<.15);
+    if(G.level>0&&want){doBank(p);await sleep(500);if(tok!==turnToken||ended)return}
+    await sleep(rnd(700,1700));
+    if(tok!==turnToken||ended)return;
+    const ok=Math.random()<p.skill;
+    const ans=ok?Q.good:pick(Q.opts.filter(o=>o!==Q.good));
+    const b=btns.find(x=>x.textContent===ans);b&&b.classList.add('pick');
+    await sleep(350);
+    if(tok!==turnToken||ended)return;
+    resolve(p,ans,btns);
+  }
+}
+function humanBank(){
+  const p=G.players[G.turn];
+  if(!p||!p.human||ended||G.level===0)return;
+  doBank(p);$('r-bankbtn').disabled=true;
+}
+function doBank(p){
+  const v=CHAIN[G.level-1];
+  G.roundBank+=v;p.st.banked+=v;G.level=0;
+  sfx.bank();vibrate(30);
+  $('r-status').textContent=`${p.name} : BANQUE ! +${euro(v)}`;$('r-status').className='status gold';
+  renderChain();updateTop();
+}
+async function resolve(p,ans,btns){
+  const Q=G.cur;const ok=ans===Q.good;
+  btns.forEach(b=>{b.disabled=true;b.onclick=null;
+    if(b.textContent===Q.good)b.classList.add('good');else if(b.textContent===ans)b.classList.add('bad')});
+  $('r-bankbtn').disabled=true;
+  if(ok){
+    p.st.good++;G.level++;sfx.good();
+    $('r-status').textContent='Bonne réponse !';$('r-status').className='status good';
+    renderChain(true);
+    if(G.level>=CHAIN.length){
+      G.roundBank+=CHAIN[CHAIN.length-1];p.st.banked+=CHAIN[CHAIN.length-1];G.level=0;
+      sfx.bank();updateTop();renderChain();
+      $('r-status').textContent='Chaîne complète ! 1 000 € à la banque';$('r-status').className='status gold';
+      await sleep(1100);
+      if(!ended)endRound('full');
+      return;
+    }
+  }else{
+    p.st.bad++;sfx.bad();vibrate(120);
+    const lost=G.level?CHAIN[G.level-1]:0;
+    G.level=0;renderChain();
+    $('r-status').textContent=lost?`Chaîne cassée ! ${euro(lost)} perdus`:'Mauvaise réponse';
+    $('r-status').className='status bad';
+  }
+  await sleep(ok?800:1300);
+  nextTurn(false);
+}
+
+function endRound(reason){
+  if(ended)return;
+  ended=true;turnToken++;clearInterval(roundTimer);
+  sfx.end();
+  const lost=G.level?CHAIN[G.level-1]:0;G.level=0;
+  G.time=Math.max(0,G.time);updateTop();renderChain();renderPlayers();
+  $('r-ans').querySelectorAll('button').forEach(b=>b.disabled=true);
+  $('r-bankbtn').disabled=true;
+  const gain=G.final?G.roundBank*2:G.roundBank;
+  G.total+=gain;
+  const msg=reason==='full'?'Chaîne complète !':'Temps écoulé !';
+  overlay(`${msg}<br><span>+${euro(gain)}</span>${lost?`<br><small style="font-size:16px;color:#ff4d5e">${euro(lost)} non banqués perdus</small>`:''}`,2000)
+    .then(()=>G.final?startDuel():showVote());
+}
+
+// ---------- Vote ----------
+function strength(p){return p.st.good*2-p.st.bad*1.5+p.st.banked/150}
+function ranks(){
+  const a=alive().slice().sort((x,y)=>strength(y)-strength(x));
+  return {strong:a[0],weak:a[a.length-1]};
+}
+let myVote=null;
+function showVote(){
+  const {strong,weak}=ranks();G.strong=strong;G.weak=weak;
+  G.starter=G.players.indexOf(strong);
+  $('v-title').textContent=`Fin de la manche ${G.round}`;
+  $('v-sub').innerHTML=`Cagnotte totale : <b style="color:var(--gold)">${euro(G.total)}</b>`;
+  myVote=null;
+  const me=G.players.find(p=>p.human);
+  $('v-list').innerHTML=alive().map(p=>`<div class="row ${p===strong?'strong':''} ${p===weak?'weak':''}" data-n="${G.players.indexOf(p)}">
+    <div class="av">${p.av}</div>
+    <div class="info"><div class="nm">${esc(p.name)} ${p===strong?'<span class="tag s">LE PLUS SOLIDE</span>':''}${p===weak?'<span class="tag w">LE PLUS FRAGILE</span>':''}</div>
+    <div class="st">✔ ${p.st.good} &nbsp; ✘ ${p.st.bad} &nbsp; banqué ${euro(p.st.banked)}</div></div>
+    <div class="votes"></div></div>`).join('');
+  $('v-hint').textContent='Touchez le joueur que vous voulez éliminer.';
+  $('v-btn').disabled=true;$('v-btn').textContent='Voter';$('v-btn').onclick=confirmVote;
+  [...$('v-list').children].forEach(r=>{
+    const p=G.players[+r.dataset.n];
+    if(p===me){r.style.opacity=.6;return}
+    r.onclick=()=>{[...$('v-list').children].forEach(x=>x.classList.remove('sel'));r.classList.add('sel');myVote=p;$('v-btn').disabled=false};
+  });
+  go('s-vote');
+}
+function botVote(b){
+  const others=alive().filter(p=>p!==b);
+  const sorted=others.slice().sort((x,y)=>strength(x)-strength(y));
+  const r=Math.random();
+  if(r<0.6)return sorted[0];                       // le plus faible
+  if(r<0.75)return sorted[Math.min(1,sorted.length-1)];
+  if(r<0.88)return sorted[sorted.length-1];        // stratégie : écarter le plus fort
+  return pick(others);
+}
+async function confirmVote(){
+  if(!myVote)return;
+  $('v-btn').disabled=true;
+  [...$('v-list').children].forEach(r=>r.onclick=null);
+  $('v-hint').textContent='Dépouillement des votes…';
+  const votes=new Map();alive().forEach(p=>votes.set(p,0));
+  const ballots=alive().map(v=>[v,v.human?myVote:botVote(v)]);
+  for(const [voter,target] of shuffle(ballots)){
+    await sleep(700);
+    votes.set(target,votes.get(target)+1);
+    const row=[...$('v-list').children].find(r=>G.players[+r.dataset.n]===target);
+    row.querySelector('.votes').textContent=votes.get(target);
+    row.querySelector('.nm').insertAdjacentHTML('beforeend',`<span class="ballot">${esc(voter.name)}</span>`);
+    tone(500,.08,'square',.06);
+  }
+  await sleep(800);
+  const max=Math.max(...votes.values());
+  let tied=[...votes].filter(([,v])=>v===max).map(([p])=>p);
+  if(tied.length===1)return eliminate(tied[0],null);
+  // Égalité : le plus solide tranche
+  const s=G.strong;
+  if(s.human){
+    $('v-hint').innerHTML=`Égalité ! Vous êtes le joueur le plus solide : <b>à vous de trancher</b>.`;
+    [...$('v-list').children].forEach(r=>{
+      const p=G.players[+r.dataset.n];
+      if(!tied.includes(p)||p.human){r.style.opacity=.35;r.onclick=null;return}
+      r.classList.remove('sel');
+      r.onclick=()=>{[...$('v-list').children].forEach(x=>x.classList.remove('sel'));r.classList.add('sel');myVote=p;$('v-btn').disabled=false};
+    });
+    $('v-btn').textContent='Trancher';$('v-btn').disabled=true;
+    $('v-btn').onclick=()=>{if(myVote&&tied.includes(myVote))eliminate(myVote,s)};
+  }else{
+    $('v-hint').innerHTML=`Égalité ! ${esc(s.name)}, le plus solide, tranche…`;
+    await sleep(1500);
+    const cands=tied.filter(p=>p!==s).sort((x,y)=>strength(x)-strength(y));
+    eliminate(cands[0]||tied[0],s);
+  }
+}
+function eliminate(p,decider){
+  p.alive=false;
+  const lines=['vous êtes le chaînon qui lâche. Au revoir !','la chaîne se passera de vous. Au revoir !','votre maillon cède. Au revoir !'];
+  $('e-text').innerHTML=`${p.av}<br>${esc(p.name)},<br>${pick(lines)}`;
+  $('e-sub').textContent=decider?`Décision de ${decider.human?'vous-même':decider.name} après égalité.`:'';
+  sfx.end();vibrate(200);
+  if(p.human){
+    $('e-btn').textContent='Voir le bilan';
+    $('e-btn').onclick=()=>finish(false,`Éliminé·e à la manche ${G.round}. La cagnotte s'élevait à ${euro(G.total)}.`);
+  }else{
+    $('e-btn').textContent=alive().length===2?'Manche finale':'Manche suivante';
+    $('e-btn').onclick=()=>{if(!G.players[G.starter].alive)G.starter=G.players.findIndex(x=>x.alive);startRound()};
+  }
+  go('s-elim');
+}
+
+// ---------- Duel ----------
+function startDuel(){
+  const duo=alive().sort((x,y)=>strength(y)-strength(x));
+  G.duo=duo;G.dres=[[],[]];G.dturn=0;G.sudden=false;
+  $('d-bank').textContent=euro(G.total);
+  go('s-duel');renderDuel();
+  overlay(`Duel final<br><span>5 questions chacun</span>`,1800).then(duelTurn);
+}
+function renderDuel(){
+  $('d-rows').innerHTML=G.duo.map((p,i)=>{
+    const r=G.dres[i];const n=G.sudden?Math.max(r.length,1):5;
+    let dots='';for(let k=0;k<Math.max(n,r.length);k++)dots+=`<div class="dot ${r[k]===true?'g':r[k]===false?'b':''}"></div>`;
+    return `<div class="duelrow ${i===G.dturn?'turn':''}"><div style="font-size:26px">${p.av}</div>
+      <div style="flex:1"><div style="font-weight:700">${esc(p.name)}</div><div class="dots">${dots}</div></div>
+      <div style="font-size:22px;font-weight:800">${r.filter(Boolean).length}</div></div>`}).join('');
+}
+function duelWinner(){
+  const [a,b]=G.dres;const sa=a.filter(Boolean).length,sb=b.filter(Boolean).length;
+  if(!G.sudden){
+    const ra=5-a.length,rb=5-b.length;
+    if(sa+ra<sb)return 1; if(sb+rb<sa)return 0;
+    if(ra===0&&rb===0){if(sa===sb){G.sudden=true;G.sbase=[a.length,b.length];return -1}return sa>sb?0:1}
+    return -1;
+  }
+  if(a.length===b.length&&a.length>G.sbase[0]){
+    const la=a[a.length-1],lb=b[b.length-1];
+    if(la!==lb)return la?0:1;
+  }
+  return -1;
+}
+let dTimer=null;
+async function duelTurn(){
+  if(G.quit)return;
+  const w=duelWinner();
+  if(w>=0)return duelEnd(w);
+  if(G.sudden&&G.dres[0].length===G.sbase[0]&&G.dres[1].length===G.sbase[1]){
+    await overlay('Égalité !<br><span>Mort subite</span>',1500);
+  }
+  renderDuel();
+  const p=G.duo[G.dturn];const Q=nextQuestion();
+  $('d-who').textContent=(p.human?'À vous, ':'Question pour ')+p.name;
+  $('d-q').textContent=Q.q;$('d-status').textContent='';$('d-status').className='status';
+  const box=$('d-ans');
+  box.innerHTML=Q.opts.map(o=>`<button class="ans">${esc(o)}</button>`).join('');
+  const btns=[...box.children];
+  const bar=$('d-qt').firstElementChild;
+  let ans;
+  if(p.human){
+    const LIMIT=15;const t0=Date.now();
+    ans=await new Promise(res=>{
+      btns.forEach(b=>b.onclick=()=>res(b.textContent));
+      dTimer=setInterval(()=>{const e=(Date.now()-t0)/1000;bar.style.width=Math.max(0,100-e/LIMIT*100)+'%';if(e>=LIMIT)res(null)},100);
+    });
+    clearInterval(dTimer);
+  }else{
+    btns.forEach(b=>b.disabled=true);bar.style.width='100%';
+    await sleep(rnd(1200,2400));
+    if(G.quit)return;
+    const ok=Math.random()<p.skill;
+    ans=ok?Q.good:pick(Q.opts.filter(o=>o!==Q.good));
+    const b=btns.find(x=>x.textContent===ans);b&&b.classList.add('pick');await sleep(400);
+  }
+  const ok=ans===Q.good;
+  btns.forEach(b=>{b.disabled=true;b.onclick=null;
+    if(b.textContent===Q.good)b.classList.add('good');else if(b.textContent===ans)b.classList.add('bad')});
+  ok?sfx.good():sfx.bad();
+  $('d-status').textContent=ans===null?'Temps écoulé !':ok?'Bonne réponse !':'Mauvaise réponse';
+  $('d-status').className='status '+(ok?'good':'bad');
+  G.dres[G.dturn].push(ok);
+  G.dturn=1-G.dturn;
+  renderDuel();
+  await sleep(1300);
+  if(!G.quit)duelTurn();
+}
+function duelEnd(w){
+  const win=G.duo[w];renderDuel();
+  if(win.human){sfx.win();finish(true,`Vous battez ${G.duo[1-w].name} en duel et remportez toute la cagnotte !`)}
+  else finish(false,`${win.name} remporte le duel et repart avec la cagnotte de ${euro(G.total)}. Si près du but !`);
+}
+function finish(won,text){
+  $('f-title').textContent=won?'Victoire !':'Perdu !';
+  $('f-amount').textContent=won?euro(G.total):'0 €';
+  $('f-text').textContent=text;
+  if(won){try{const b=+localStorage.getItem('best')||0;if(G.total>b)localStorage.setItem('best',G.total)}catch(e){}}
+  go('s-end');
+}
+
+// Bouton retour Android
+window.handleBack=function(){
+  const a=document.querySelector('.screen.active').id;
+  if(a==='s-rules'||a==='s-setup'){go('s-home');return true}
+  if(a==='s-home')return false;
+  if(confirm('Quitter la partie en cours ?')){if(G)G.quit=true;ended=true;turnToken++;clearInterval(roundTimer);clearInterval(dTimer);go('s-home');showBest()}
+  return true;
+};
+showBest();
+</script>
+</body>
+</html>
